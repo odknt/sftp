@@ -53,3 +53,9 @@ type FileLister interface {
 type ListerAt interface {
 	ListAt([]os.FileInfo, int64) (int, error)
 }
+
+// PathResolver is an interface for resolve real path by the given path
+// Called for Methods: PWD
+type PathResolver interface {
+	Resolve(string) string
+}

@@ -26,6 +26,7 @@ type Handlers struct {
 type RequestServer struct {
 	*serverConn
 	Handlers        Handlers
+	PathResolver    PathResolver
 	pktMgr          *packetManager
 	openRequests    map[string]*Request
 	openRequestLock sync.RWMutex
@@ -156,7 +157,11 @@ func (rs *RequestServer) packetWorker(
 			handle := pkt.getHandle()
 			rpkt = statusFromError(pkt, rs.closeRequest(handle))
 		case *sshFxpRealpathPacket:
-			rpkt = cleanPacketPath(pkt)
+			if rs.PathResolver != nil {
+				rpkt = newRespRealPath(pkt, rs.PathResolver.Resolve(pkt.getPath()))
+			} else {
+				rpkt = cleanPacketPath(pkt)
+			}
 		case *sshFxpOpendirPacket:
 			request := requestFromPacket(ctx, pkt)
 			rs.nextRequest(request)
@@ -199,6 +204,10 @@ func (rs *RequestServer) packetWorker(
 // clean and return name packet for file
 func cleanPacketPath(pkt *sshFxpRealpathPacket) responsePacket {
 	path := cleanPath(pkt.getPath())
+	return newRespRealPath(pkt, path)
+}
+
+func newRespRealPath(pkt *sshFxpRealpathPacket, path string) responsePacket {
 	return &sshFxpNamePacket{
 		ID: pkt.id(),
 		NameAttrs: []sshFxpNameAttr{{
